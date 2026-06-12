@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<!-- ============================================================
+     Golf Trip — Trip Management & Scoring PWA
+     Version : v1.30  Build 2026-06-12 08:47 AM ET
+     Author  : BiZStoryGuru LLC
+     Deploy  : upload index.html + sw.js + manifest.json + logo.png to GitHub repo root
+     Firebase: bzs-golf-apps-default-rtdb.firebaseio.com/bz-apps/golf-trip/state.json
+============================================================ -->
+<!--
+CHANGELOG
+// v1.30  2026-06-12  [describe changes here]
+// v1.30  2026-06-11  Add: BlueGolf course import, player import (Extras/CSV), auto GHIN refresh, skins format, pair history groups, group editing, normalizeState
+// v1.20  2026-06-11  Rebuild: proper design system, nav, header, Players in Group, Courses in Trip, writeKey from Firebase only
+// v1.10  2026-06-11  Remove shared courses — Golf Trip uses per-group course management only
+// v1.00  2026-06-11  Initial release
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://bzs-golf-apps-default-rtdb.firebaseio.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Golf Trip">
+<meta name="theme-color" content="#1a2f1a">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://bzs-golf-apps-default-rtdb.firebaseio.com https://fonts.googleapis.com https://fonts.gstatic.com https://ghin-proxy.brianzrimsek.workers.dev; img-src 'self' data:;">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="logo.png">
+<link rel="icon" type="image/png" href="logo.png">
+<title>Golf Trip</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--g900:#0d1f0d;--g800:#1a2f1a;--g700:#243824;--g600:#2e472e;--gold:#c9a227;--gold2:#e8c04a;--surf:#fff;--surf2:#f4f4f2;--surf3:#e8e8e5;--red:#c0392b;--blue:#2471a3;--text:#1a1a1a;--muted:#777;--radius:10px;--shadow:0 2px 12px rgba(0,0,0,0.12);}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'DM Sans',sans-serif;background:var(--surf2);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding-top:env(safe-area-inset-top);}
+header{background:var(--g800);color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;}
+.hdr-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;max-width:480px;margin:0 auto;}
+.hdr-left{display:flex;align-items:center;gap:10px;}
+.hdr-logo{height:40px;width:40px;object-fit:contain;border-radius:6px;}
+.hdr-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--gold);}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,0.5);margin-top:1px;font-weight:500;}
+.hdr-right{display:flex;align-items:center;gap:8px;}
+.admin-badge{background:var(--gold);color:var(--g800);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:0.5px;display:none;}
+.admin-badge.visible{display:inline-block;}
+nav{background:var(--g900);display:flex;position:fixed;bottom:0;left:0;right:0;z-index:250;border-top:1px solid rgba(255,255,255,.07);padding-bottom:env(safe-area-inset-bottom);}
+.nav-inner{display:flex;max-width:480px;width:100%;margin:0 auto;}
+nav button{flex:1;min-width:0;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 2px 13px;color:rgba(255,255,255,.4);transition:color .18s;-webkit-tap-highlight-color:transparent;}
+nav button svg{width:21px;height:21px;stroke-width:1.8;flex-shrink:0;}
+nav button .nav-lbl{font-size:9px;letter-spacing:.3px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+nav button.active{color:var(--gold);}
+main{flex:1;min-height:0;padding:0;max-width:480px;width:100%;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;}
+.tab{display:none;}.tab.active{display:block;overflow-y:auto;padding:14px;padding-bottom:80px;}
+#tab-scoring-content.active{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:0;}
+.card{background:var(--surf);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--g800);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .15s;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+.btn-gold{background:var(--gold);color:var(--g800);}.btn-gold:hover{background:var(--gold2);}
+.btn-sm{padding:9px 14px;font-size:13px;}
+.btn-x{padding:9px 12px;font-size:13px;font-weight:700;background:#e74c3c;border:1.5px solid #e74c3c;border-radius:var(--radius);color:#fff;cursor:pointer;font-family:'DM Sans',sans-serif;line-height:1;flex-shrink:0;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-outline{background:none;border:1.5px solid var(--g800);color:var(--g800);}
+.btn-full{width:100%;}.btn:disabled{opacity:.45;cursor:not-allowed;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--surf3);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surf);color:var(--text);outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus{border-color:var(--gold);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.list-item{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--surf);border-radius:8px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.li-main{font-weight:600;font-size:14px;}.li-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.li-actions{display:flex;gap:6px;flex-shrink:0;}
+.li-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--surf2);}
+.li-badge.green{background:#27ae60;color:#fff;}.li-badge.grey{background:var(--surf3);color:var(--muted);}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surf);border-radius:14px;padding:22px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);}
+.modal h2{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px;color:var(--g800);margin-bottom:16px;}
+.modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;}
+.confirm-overlay{z-index:300;}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--g800);color:#fff;padding:10px 22px;border-radius:30px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:400;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--g800);letter-spacing:1px;}
+.section-label{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;color:var(--muted);margin:14px 0 7px;text-transform:uppercase;}
+.bottom-spacer{height:24px;}
+.empty{text-align:center;padding:32px 16px;color:var(--muted);}
+.empty .empty-icon{font-size:38px;margin-bottom:10px;}.empty p{font-size:14px;}
+.check-list{border:1.5px solid var(--surf3);border-radius:8px;overflow:hidden;}
+.check-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--surf3);}
+.check-item:last-child{border-bottom:none;}
+.check-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold);cursor:pointer;}
+.check-item label{flex:1;font-size:13px;font-weight:500;cursor:pointer;}
+.check-item .hcp-tag{font-size:11px;color:var(--muted);}
+.score-table{width:100%;border-collapse:collapse;font-size:12px;}
+.score-table th{background:var(--g800);color:var(--gold);padding:5px 8px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.5px;}
+.score-table td{padding:5px 8px;text-align:center;border-bottom:1px solid var(--surf3);}
+.score-table tr:last-child td{border:none;}.score-table tr:nth-child(even) td{background:var(--surf2);}
+.switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--surf3);border-radius:24px;transition:.3s;}
+.slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;}
+input:checked + .slider{background:var(--gold);}
+input:checked + .slider:before{transform:translateX(20px);}
+.day-card{background:var(--surf);border-radius:var(--radius);margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden;}
+.day-card-hdr{background:var(--g800);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.day-label{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--gold);}
+.round-row{padding:10px 14px;border-bottom:1px solid var(--surf3);display:flex;align-items:flex-start;gap:8px;}
+.round-row:last-child{border-bottom:none;}.round-info{flex:1;min-width:0;}
+.round-label-txt{font-size:13px;font-weight:700;color:var(--g800);margin-bottom:3px;}
+.round-sub{font-size:11px;color:var(--muted);}
+.fmt-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.5px;margin-right:4px;}
+.fmt-stroke{background:#e3f2fd;color:var(--blue);}.fmt-stableford{background:#fff3e0;color:#e67e22;}
+.fmt-scramble{background:#f3e5f5;color:#8e44ad;}.fmt-shamble{background:#fce4ec;color:#c0392b;}
+.fmt-practice{background:#e8f5e9;color:#27ae60;}.fmt-skins{background:#fef9c3;color:#b45309;}
+.fmt-championship{background:var(--gold);color:var(--g800);}
+.scoring-phase{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden;}
+.scoring-phase.active-phase{display:flex;}
+.phase-card{background:var(--surf);padding:12px;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+.phase-hdr{flex-shrink:0;display:flex;align-items:center;gap:6px;margin-bottom:10px;}
+.phase-body{flex:1;min-height:0;overflow-y:auto;}
+.hole-cell{text-align:center;font-size:11px;padding:4px 1px;border-radius:4px;background:var(--surf2);}
+.hole-cell.par-cell{background:var(--g800);color:var(--gold);font-size:10px;}
+.hole-cell.total{font-weight:700;background:var(--g800);color:var(--gold);}
+.grp-slot{border:2px dashed var(--surf3);border-radius:8px;padding:8px;margin-bottom:6px;min-height:44px;}
+.grp-slot.drag-over{border-color:var(--gold);background:#fffbe6;}
+.grp-player{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surf2);border-radius:6px;margin-bottom:4px;cursor:pointer;}
+.grp-player .gp-name{font-size:13px;font-weight:600;}
+.grp-player .gp-hcp{font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-inner">
+    <div class="hdr-left">
+      <img class="hdr-logo" src="logo.png" alt="Golf Trip">
+      <div>
+        <div class="hdr-title">GOLF TRIP</div>
+        <div class="hdr-sub" id="header-version"></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <span class="admin-badge" id="admin-badge">ADMIN</span>
+      <div id="sync-status" style="font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.5px;">&#9679; local</div>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="tab active" id="tab-trips-content"><div id="trips-body"></div></div>
+<div class="tab" id="tab-schedule-content"><div id="schedule-body"></div></div>
+<div class="tab" id="tab-scoring-content">
+  <div class="scoring-phase active-phase" id="score-phase-pick" style="overflow-y:auto;padding:14px;padding-bottom:80px;"><div id="score-pick-body"></div></div>
+  <div class="scoring-phase" id="score-phase-groups">
+    <div class="phase-card">
+      <div class="phase-hdr">
+        <button class="btn-x" onclick="scorePhase('pick')">&#10005;</button>
+        <button class="btn btn-sm btn-outline" onclick="scorePhase('pick')">&larr; Back</button>
+        <span style="flex:1;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--g800);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="groups-title">Groups</span>
+        <button class="btn btn-sm btn-outline" onclick="generateGroups()" style="flex-shrink:0;">Generate</button>
+        <button class="btn btn-sm btn-gold" onclick="scorePhase('scores')" style="flex-shrink:0;">Scores &rarr;</button>
+      </div>
+      <div class="phase-body" id="groups-body"></div>
+    </div>
+  </div>
+  <div class="scoring-phase" id="score-phase-scores">
+    <div class="phase-card">
+      <div class="phase-hdr">
+        <button class="btn-x" onclick="confirmAbandon()">&#10005;</button>
+        <button class="btn btn-sm btn-outline" onclick="scorePhase('groups')">&larr; Groups</button>
+        <span style="flex:1;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--g800);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="scores-title">Scores</span>
+        <button class="btn btn-sm btn-gold" onclick="scorePhase('results')" style="flex-shrink:0;">Results &rarr;</button>
+      </div>
+      <div class="phase-body" id="scores-body"></div>
+    </div>
+  </div>
+  <div class="scoring-phase" id="score-phase-results">
+    <div class="phase-card">
+      <div class="phase-hdr">
+        <button class="btn-x" onclick="confirmAbandon()">&#10005;</button>
+        <button class="btn btn-sm btn-outline" onclick="scorePhase('scores')">&larr; Scores</button>
+        <span style="flex:1;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--g800);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="results-title">Results</span>
+        <button class="btn btn-sm btn-gold" onclick="saveRound()" style="flex-shrink:0;">Save &#10003;</button>
+      </div>
+      <div class="phase-body" id="results-body"></div>
+    </div>
+  </div>
+</div>
+<div class="tab" id="tab-history-content"><div id="history-body"></div></div>
+<div class="tab" id="tab-settings-content"><div id="settings-body"></div></div>
+<div class="tab" id="tab-log-content">
+  <div class="sec-hdr"><div class="sec-title">Activity Log</div><button class="btn btn-sm btn-outline" onclick="clearLog()">Clear</button></div>
+  <div id="log-body" style="font-size:11px;color:var(--muted);font-family:monospace;line-height:1.8;"></div>
+</div>
+</main>
+
+<nav>
+  <div class="nav-inner">
+    <button onclick="showTab('trips')" id="nav-trips" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="nav-lbl">Trips</span>
+    </button>
+    <button onclick="showTab('schedule')" id="nav-schedule">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="nav-lbl">Schedule</span>
+    </button>
+    <button onclick="showTab('scoring')" id="nav-scoring">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="nav-lbl">Scoring</span>
+    </button>
+    <button onclick="showTab('history')" id="nav-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span class="nav-lbl">History</span>
+    </button>
+    <button onclick="showTab('settings')" id="nav-settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span class="nav-lbl">Settings</span>
+    </button>
+    <button onclick="showTab('log')" id="nav-log" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span class="nav-lbl">Log</span>
+    </button>
+  </div>
+</nav>
+
+<!-- MODALS -->
+<div class="modal-overlay confirm-overlay" id="confirmModal" onclick="if(event.target===this)closeModal('confirmModal')">
+  <div class="modal"><h2 id="confirmTitle">Confirm</h2><p id="confirmMsg" style="font-size:14px;color:var(--muted);line-height:1.5;"></p>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('confirmModal')">Cancel</button><button class="btn btn-danger" id="confirmOkBtn">OK</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="groupModal" onclick="if(event.target===this)closeModal('groupModal')">
+  <div class="modal"><h2 id="group-modal-title">New Group</h2>
+    <div class="field"><label>Group Name</label><input type="text" id="gm-name" placeholder="e.g. Walden Guys"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('groupModal')">Cancel</button><button class="btn btn-gold" onclick="saveGroup()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="playerModal" onclick="if(event.target===this)closeModal('playerModal')">
+  <div class="modal"><h2 id="player-modal-title">Add Player</h2>
+    <div class="field"><label>Name</label><input type="text" id="pm-name" placeholder="First Last"></div>
+    <div class="field-row">
+      <div class="field"><label>GHIN #</label><input type="text" id="pm-ghin" inputmode="numeric" placeholder="1234567"></div>
+      <div class="field"><label>Phone</label><input type="tel" id="pm-phone" inputmode="numeric" placeholder="5551234567"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('playerModal')">Cancel</button><button class="btn btn-gold" onclick="savePlayer()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="importModal" onclick="if(event.target===this)closeModal('importModal')">
+  <div class="modal"><h2>Import Players</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Import from Extras Manager or a CSV file.</p>
+    <div class="section-label">From Extras Manager</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="importFromExtras('wed')">WED Roster</button>
+      <button class="btn btn-outline btn-sm" style="flex:1;" onclick="importFromExtras('thu')">THU Roster</button>
+    </div>
+    <div class="section-label">From CSV File</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Format: Name, GHIN, Phone (one per line). Header row optional.</div>
+    <div style="margin-bottom:8px;"><input type="file" id="csv-file-input" accept=".csv,.txt" style="font-size:13px;width:100%;"></div>
+    <button class="btn btn-outline btn-full" onclick="importFromCSV()">Import CSV</button>
+    <div id="import-status" style="font-size:13px;min-height:28px;margin-top:10px;color:var(--muted);"></div>
+    <div class="modal-actions"><button class="btn btn-gold" onclick="closeModal('importModal')">Done</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tripModal" onclick="if(event.target===this)closeModal('tripModal')">
+  <div class="modal"><h2 id="trip-modal-title">New Trip</h2>
+    <div class="field"><label>Destination</label><input type="text" id="tm-dest" placeholder="e.g. Pinehurst"></div>
+    <div class="field-row">
+      <div class="field"><label>Start Date</label><input type="date" id="tm-start"></div>
+      <div class="field"><label>End Date</label><input type="date" id="tm-end"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('tripModal')">Cancel</button><button class="btn btn-gold" onclick="saveTrip()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="courseModal" onclick="if(event.target===this)closeModal('courseModal')">
+  <div class="modal"><h2 id="course-modal-title">Add Course</h2>
+    <div class="section-label">Import from BlueGolf</div>
+    <div style="display:flex;gap:6px;margin-bottom:4px;">
+      <input type="text" id="cm-bg-url" placeholder="BlueGolf URL or course slug" style="flex:1;padding:9px 12px;border:1.5px solid var(--surf3);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;">
+      <button class="btn btn-sm btn-outline" onclick="fetchBluegolf()">Fetch</button>
+    </div>
+    <div id="cm-bg-status" style="font-size:12px;color:var(--muted);margin-bottom:4px;min-height:16px;"></div>
+    <div id="cm-bg-tees" style="margin-bottom:10px;"></div>
+    <div style="text-align:center;font-size:12px;color:var(--muted);margin:8px 0;">&#8212; or enter manually &#8212;</div>
+    <div class="field"><label>Course Name</label><input type="text" id="cm-name" placeholder="e.g. Pinehurst No. 2"></div>
+    <div class="field-row">
+      <div class="field"><label>Slope</label><input type="number" id="cm-slope" inputmode="numeric" placeholder="113"></div>
+      <div class="field"><label>Rating</label><input type="number" id="cm-rating" inputmode="decimal" placeholder="72.0" step="0.1"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Par</label><input type="number" id="cm-par" inputmode="numeric" placeholder="72"></div>
+      <div class="field"><label>Holes</label><select id="cm-holes"><option value="18">18 Holes</option><option value="9">9 Holes</option></select></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('courseModal')">Cancel</button><button class="btn btn-gold" onclick="saveCourse()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="roundModal" onclick="if(event.target===this)closeModal('roundModal')">
+  <div class="modal"><h2 id="round-modal-title">Add Round</h2>
+    <div class="field"><label>Label</label><input type="text" id="rm-label" placeholder="e.g. AM, PM, Practice"></div>
+    <div class="field"><label>Course</label><select id="rm-course"></select></div>
+    <div class="field"><label>Format</label>
+      <select id="rm-format">
+        <option value="stroke">Stroke Play</option>
+        <option value="stableford">Stableford</option>
+        <option value="skins">Skins</option>
+        <option value="scramble">Scramble</option>
+        <option value="shamble">Shamble</option>
+        <option value="practice">Practice</option>
+      </select>
+    </div>
+    <div class="field"><label>Nine Mode</label>
+      <select id="rm-nine"><option value="all">18 Holes</option><option value="front">Front 9</option><option value="back">Back 9</option></select>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Tee Times</div>
+      <div id="rm-teetimes"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <input type="text" id="rm-newtt" placeholder="e.g. 8:00 AM" style="flex:1;padding:8px 10px;border:1.5px solid var(--surf3);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;">
+        <button class="btn btn-sm btn-outline" onclick="addTeeTime()">+ Add</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <label class="switch"><input type="checkbox" id="rm-champ"><span class="slider"></span></label>
+      <span style="font-size:13px;font-weight:600;">Championship Round</span>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('roundModal')">Cancel</button><button class="btn btn-gold" onclick="saveRoundModal()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="rosterModal" onclick="if(event.target===this)closeModal('rosterModal')">
+  <div class="modal"><h2>Trip Roster</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Select players going on this trip.</p>
+    <div id="roster-list" class="check-list" style="max-height:50vh;overflow-y:auto;"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('rosterModal')">Cancel</button><button class="btn btn-gold" onclick="saveTripRoster()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ghinModal" onclick="if(event.target===this)closeModal('ghinModal')">
+  <div class="modal"><h2>Refresh GHIN Indexes</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Fetches current handicap indexes for all players with a GHIN number.</p>
+    <div id="ghin-status" style="font-size:13px;min-height:32px;"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('ghinModal')">Close</button><button class="btn btn-gold" id="ghin-btn" onclick="doGhinRefresh(true)">Refresh All</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="grpEditModal" onclick="if(event.target===this)closeModal('grpEditModal')">
+  <div class="modal"><h2>Edit Groups</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Tap a player to select, then tap a group to move them there.</p>
+    <div id="grp-edit-body" style="max-height:65vh;overflow-y:auto;"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('grpEditModal')">Cancel</button><button class="btn btn-gold" onclick="saveGroupEdit()">Save</button></div>
+  </div>
+</div>
+
+<div id="toastEl" class="toast"></div>
+
+<script>
+'use strict';
+const FB_BASE='https://bzs-golf-apps-default-rtdb.firebaseio.com/bz-apps/golf-trip';
+const EXTRAS_URL='https://bzs-golf-apps-default-rtdb.firebaseio.com/bz-apps/extras-manager.json';
+const LS_KEY='gt_v1';
+const APP_VERSION='1.30';
+const BUILD_TIME = '2026-06-12 08:47 AM ET'; // Eastern Time — hard-coded, update when deploying
+const VERSION_KEY='gt_version';
+const GHIN_PROXY='https://ghin-proxy.brianzrimsek.workers.dev';
+const DEBOUNCE_MS=800;
+
+let S={
+  groups:{},
+  config:{ghinProxyUrl:GHIN_PROXY,log:[],lastGhinRefresh:null,autoGhinRefresh:true},
+  settings:{ptsDblEagle:5,ptsEagle:4,ptsBirdie:3,ptsPar:2,ptsBogey:1,ptsDbl:0,groupMethod:'abcd',strokeAllowance:100,skins:{hcpAdj:100,strokeOffBest:false}},
+  activeGroupId:null,activeTripId:null,activeRound:null
+};
+let _fbLoaded=false,_dirty=false,_writeTimer=null,_lastUpdateCheck=0,adminMode=false;
+let _editGrpId=null,_editPlyId=null,_editTripId=null,_editCrsId=null,_editRndCtx=null;
+let _roundTTs=[],_scoreInputs=[],_importedTees=[],_grpEditState=[],_selectedPlayer=null;
+
+function esc(s){const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML;}
+function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function toArr(v){return v?(Array.isArray(v)?v:Object.values(v)):[]; }
+function el(id){return document.getElementById(id);}
+function fmtDate(d){if(!d)return '';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function fmtShort(d){if(!d)return '';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+function fmtHcp(h){if(h==null||h===undefined)return '—';return h<0?`+${Math.abs(h)}`:`${h}`;}
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function encodePhone(digits){if(!digits)return '';const d=digits.replace(/\D/g,'');try{return btoa(d);}catch(e){return d;}}
+function decodePhone(stored){if(!stored)return '';try{const d=atob(stored);return /^\d+$/.test(d)?d:stored;}catch(e){return stored;}}
+function formatPhone(raw){const d=(raw||'').replace(/\D/g,'');return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:d;}
+function firstOf(n){const s=(n||'').trim();if(s.includes(',')){const f=s.split(',')[1];return f?f.trim().split(' ')[0]:'';}return s.split(' ')[0];}
+function padVer(v){return v.replace(/(\d+)\.(\d+)/,(_,a,b)=>`${a}.${b.padStart(3,'0')}`);}
+
+function toast(msg,dur=2000){const t=el('toastEl');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function showModal(id){el(id).classList.add('open');}
+function closeModal(id){el(id).classList.remove('open');}
+function confirmDo(title,msg,fn,danger=true){
+  el('confirmTitle').textContent=title;el('confirmMsg').textContent=msg;
+  const btn=el('confirmOkBtn');btn.className='btn '+(danger?'btn-danger':'btn-gold');
+  btn.onclick=()=>{closeModal('confirmModal');fn();};showModal('confirmModal');
+}
+function setSyncStatus(msg,color){const e=el('sync-status');if(e){e.textContent='\u25CF '+msg;e.style.color=color||'rgba(255,255,255,.4)';}}
+
+function normalizeState(raw){
+  if(!raw||typeof raw!=='object')return S;
+  if(!raw.groups)raw.groups={};
+  if(!raw.config)raw.config={};
+  if(raw.config.ghinProxyUrl==null)raw.config.ghinProxyUrl=GHIN_PROXY;
+  if(!Array.isArray(raw.config.log))raw.config.log=[];
+  if(raw.config.lastGhinRefresh==null)raw.config.lastGhinRefresh=null;
+  if(raw.config.autoGhinRefresh==null)raw.config.autoGhinRefresh=true;
+  if(!raw.settings)raw.settings={};
+  const ds=raw.settings;
+  ['ptsDblEagle','ptsEagle','ptsBirdie','ptsPar','ptsBogey','ptsDbl'].forEach((k,i)=>{if(ds[k]==null)ds[k]=[5,4,3,2,1,0][i];});
+  if(ds.groupMethod==null)ds.groupMethod='abcd';
+  if(ds.strokeAllowance==null)ds.strokeAllowance=100;
+  if(!ds.skins)ds.skins={};
+  if(ds.skins.hcpAdj==null)ds.skins.hcpAdj=100;
+  if(ds.skins.strokeOffBest==null)ds.skins.strokeOffBest=false;
+  Object.values(raw.groups).forEach(g=>{
+    if(!g)return;
+    if(!Array.isArray(g.players))g.players=toArr(g.players);
+    if(!g.trips)g.trips={};
+    Object.values(g.trips).forEach(t=>{
+      if(!t)return;
+      if(!Array.isArray(t.playerIds))t.playerIds=toArr(t.playerIds);
+      if(!Array.isArray(t.courses))t.courses=toArr(t.courses);
+      if(!t.days)t.days={};
+      Object.values(t.days).forEach(d=>{
+        if(!d)return;
+        if(!Array.isArray(d.rounds))d.rounds=toArr(d.rounds);
+        d.rounds.forEach(r=>{
+          if(!r)return;
+          if(!Array.isArray(r.teeTimes))r.teeTimes=toArr(r.teeTimes);
+          if(!Array.isArray(r.groups))r.groups=toArr(r.groups);
+          if(!r.scores)r.scores={};
+          r.groups.forEach(grp=>{if(!Array.isArray(grp.playerIds))grp.playerIds=toArr(grp.playerIds);});
+        });
+      });
+    });
+  });
+  return raw;
+}
+
+function G(){return S.activeGroupId?S.groups[S.activeGroupId]||null:null;}
+function T(){const g=G();if(!g||!S.activeTripId)return null;return (g.trips||{})[S.activeTripId]||null;}
+function players(){return G()?(G().players||[]):[]; }
+function playerById(id){return players().find(p=>p.id===id);}
+function tripCourses(){return T()?(T().courses||[]):[]; }
+function courseById(id){return tripCourses().find(c=>c.id===id);}
+function inWindow(trip){if(!trip)return false;const t=todayStr();return t>=trip.startDate&&t<=trip.endDate;}
+function tripDays(trip){
+  if(!trip)return [];
+  const days=[];const d=new Date(trip.startDate+'T12:00:00');const end=new Date(trip.endDate+'T12:00:00');
+  while(d<=end){days.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+  return days;
+}
+function dayLabel(dateStr,idx){const d=new Date(dateStr+'T12:00:00');return `Day ${idx+1} \u2014 ${d.toLocaleDateString('en-US',{weekday:'short'})} ${fmtShort(dateStr)}`;}
+function fmtLabel(f){return {stroke:'Stroke',stableford:'Stableford',skins:'Skins',scramble:'Scramble',shamble:'Shamble',practice:'Practice'}[f]||f;}
+function fmtBadge(f,champ){const cls=champ?'fmt-championship':`fmt-${f}`;return `<span class="fmt-badge ${cls}">${champ?'CHAMP':fmtLabel(f).toUpperCase()}</span>`;}
+function isComp(f){return f==='stroke'||f==='stableford';}
+function getRound(){
+  const t=T();if(!t||!S.activeRound)return null;
+  const {dayIdx,rndIdx}=S.activeRound;
+  const dateStr=tripDays(t)[dayIdx];
+  return t.days&&t.days[dateStr]&&t.days[dateStr].rounds&&t.days[dateStr].rounds[rndIdx]||null;
+}
+
+function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(S));}catch(e){}}
+function loadLocal(){
+  try{const r=localStorage.getItem(LS_KEY);if(r){const p=JSON.parse(r);if(p&&typeof p==='object')Object.assign(S,normalizeState(p));}}catch(e){}
+}
+
+async function fetchWithTimeout(url,options={},ms=12000){
+  const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),ms);
+  try{return await fetch(url,{...options,signal:ctrl.signal});}finally{clearTimeout(tid);}
+}
+function scheduleWrite(){
+  if(!_fbLoaded)return;
+  _dirty=true;saveLocal();clearTimeout(_writeTimer);
+  _writeTimer=setTimeout(()=>{fbWrite(S);_writeTimer=null;},DEBOUNCE_MS);
+}
+async function fbWrite(data,attempt=0){
+  if(!_fbLoaded)return;
+  if(!data.config||!data.config.writeKey){setSyncStatus('pending','var(--gold)');return;}
+  setSyncStatus('saving\u2026','var(--gold)');
+  try{
+    const r=await fetchWithTimeout(`${FB_BASE}/state.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    if(!r.ok)throw new Error(r.status);
+    _dirty=false;localStorage.removeItem(LS_KEY+'_dirty');
+    setSyncStatus('synced','#86efac');appLog('Firebase sync OK');
+  }catch(e){
+    setSyncStatus(attempt<3?'retrying\u2026':'offline',attempt<3?'var(--gold)':'#f87171');
+    if(attempt<3)setTimeout(()=>fbWrite(data,attempt+1),2000*Math.pow(2,attempt));
+  }
+}
+async function fbLoad(){
+  setSyncStatus('syncing\u2026','var(--gold)');
+  fetchWithTimeout(`${FB_BASE}/state.json`)
+    .then(r=>r&&r.ok?r.json():null)
+    .then(remote=>{
+      if(remote&&typeof remote==='object'){
+        const hasData=remote.groups&&Object.keys(remote.groups||{}).length>0;
+        if(hasData||remote.config){
+          const ctx={activeGroupId:S.activeGroupId,activeTripId:S.activeTripId,activeRound:S.activeRound};
+          const norm=normalizeState(remote);Object.assign(S,norm,ctx);
+          if(norm.config&&norm.config.writeKey&&!hasData)fbWrite(S);
+          saveLocal();renderAll();setSyncStatus('ready','#86efac');appLog('Firebase loaded');
+        }else{setSyncStatus('local','rgba(255,255,255,.4)');}
+      }else{setSyncStatus('local','rgba(255,255,255,.4)');}
+      _fbLoaded=true;
+    })
+    .catch(()=>{setSyncStatus('offline','#f87171');_fbLoaded=true;});
+}
+async function checkForUpdate(){
+  const now=Date.now();if(now-_lastUpdateCheck<60000)return;_lastUpdateCheck=now;
+  try{
+    const r=await fetchWithTimeout(`${FB_BASE}/state/config.json`,{},5000);if(!r||!r.ok)return;
+    const cfg=await r.json();if(!cfg)return;
+    const latest=cfg.latestVersion;if(!latest)return;
+    const ln=parseFloat(padVer(latest)),on=parseFloat(padVer(APP_VERSION));
+    if(on>ln&&cfg.writeKey){
+      fetchWithTimeout(`${FB_BASE}/state/config.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},cfg,{latestVersion:APP_VERSION}))},5000).catch(()=>{});
+      appLog('Auto-update: wrote latestVersion '+APP_VERSION);
+    }else if(on<ln){toast('New version available \u2014 reloading\u2026',3000);setTimeout(()=>{window.location.href=window.location.pathname+'?v='+latest;},1500);}
+  }catch(e){}
+}
+
+function ghinRefreshDue(){if(!S.config||S.config.autoGhinRefresh===false)return false;const last=S.config.lastGhinRefresh;return !last||last<todayStr();}
+async function doGhinRefresh(force=false){
+  const g=G();if(!g)return;
+  if(!force&&!ghinRefreshDue())return;
+  const btn=el('ghin-btn');const status=el('ghin-status');
+  if(btn)btn.disabled=true;if(status)status.textContent='Fetching\u2026';
+  const withGhin=(g.players||[]).filter(p=>p.ghin);
+  if(!withGhin.length){if(status)status.textContent='No players have GHIN numbers.';if(btn)btn.disabled=false;return;}
+  try{
+    const url=`${S.config.ghinProxyUrl||GHIN_PROXY}?ghin=${withGhin.map(p=>p.ghin).join(',')}`;
+    const r=await fetchWithTimeout(url);if(!r.ok)throw new Error(r.status);
+    const data=await r.json();const results=Array.isArray(data)?data:[];
+    let updated=0;
+    results.forEach(res=>{
+      const ghin=String(res.ghin_number||res.ghinNumber||'');
+      const p=g.players.find(x=>x.ghin===ghin);
+      const hcp=res.handicap_index??res.handicapIndex;
+      if(p&&hcp!==undefined){p.hcp=parseFloat(hcp);updated++;}
+    });
+    S.config.lastGhinRefresh=todayStr();
+    if(status)status.textContent=`Updated ${updated} of ${withGhin.length} players.`;
+    scheduleWrite();if(updated){renderTrips();appLog(`GHIN refresh: ${updated} updated`);}
+  }catch(e){if(status)status.textContent='Fetch failed \u2014 check proxy URL.';appLog('GHIN refresh failed: '+e.message);}
+  if(btn)btn.disabled=false;
+}
+
+function appLog(msg){
+  const ts=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true});
+  const day=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  if(!S.config)S.config={};if(!Array.isArray(S.config.log))S.config.log=[];
+  S.config.log.unshift(`${day} ${ts}  ${msg}`);if(S.config.log.length>100)S.config.log.length=100;
+}
+function clearLog(){S.config.log=[];saveLocal();renderLogTab();toast('Log cleared');}
+function renderLogTab(){const b=el('log-body');if(!b)return;b.innerHTML=S.config.log.length?S.config.log.map(l=>`<div>${esc(l)}</div>`).join(''):'<div style="color:var(--muted);">No entries</div>';}
+
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t=>{t.classList.remove('active');t.style.display='';});
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  const tab=el(`tab-${name}-content`);const btn=el(`nav-${name}`);
+  if(tab)tab.classList.add('active');if(btn)btn.classList.add('active');
+  if(name==='trips')renderTrips();
+  else if(name==='schedule')renderSchedule();
+  else if(name==='scoring')renderScoringPick();
+  else if(name==='history')renderHistory();
+  else if(name==='settings')renderSettings();
+  else if(name==='log')renderLogTab();
+}
+function toggleAdmin(){
+  adminMode=!adminMode;
+  el('admin-badge').classList.toggle('visible',adminMode);
+  el('nav-log').style.display=adminMode?'':'none';
+  if(!adminMode&&el('tab-log-content').classList.contains('active'))showTab('settings');
+  renderSettings();
+}
+function renderAll(){
+  renderHeader();
+  const active=document.querySelector('nav button.active');
+  const name=active?active.id.replace('nav-',''):'trips';
+  showTab(name);
+}
+function renderHeader(){const hv=el('header-version');if(hv)hv.textContent=`v${APP_VERSION} \u00B7 ${BUILD_TIME}`;}
+
+// Handicap engine
+function roundHalf(x){return x>=0?Math.floor(x+0.5):Math.ceil(x-0.5);}
+function calcRawCourseHcp(idx,slope,rating,par,nine){let i=idx,r=rating;if(nine&&rating>=50){i=Math.floor(idx/2*10+0.5)/10;r=rating/2;}return i*(slope/113)+(r-par);}
+function calcCourseHcp(idx,slope,rating,par,nine){return roundHalf(calcRawCourseHcp(idx,slope,rating,par,nine));}
+function calcPlayingHcp(raw,pct){return roundHalf(raw*((pct||100)/100));}
+function strokesOnHole(ch,hcpRating,scale){const mod=scale||18;if(ch>=0){return Math.floor(ch/mod)+(hcpRating<=(ch%mod||0)?1:0);}const a=Math.abs(ch);return -(Math.floor(a/mod)+(hcpRating>mod-(a%mod||0)?1:0));}
+function sfPts(netVsPar,s){if(netVsPar<=-3)return s.ptsDblEagle;if(netVsPar===-2)return s.ptsEagle;if(netVsPar===-1)return s.ptsBirdie;if(netVsPar===0)return s.ptsPar;if(netVsPar===1)return s.ptsBogey;return s.ptsDbl;}
+
+// Pair history
+function getTripPairHistory(){
+  const t=T();if(!t)return new Map();
+  const pc=new Map();
+  tripDays(t).forEach(d=>{
+    const dr=t.days&&t.days[d];if(!dr)return;
+    (dr.rounds||[]).forEach(r=>{
+      if(r.championship||!r.completed)return;
+      (r.groups||[]).forEach(g=>{
+        const ids=g.playerIds||[];
+        for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){const k=[ids[i],ids[j]].sort().join('|');pc.set(k,(pc.get(k)||0)+1);}
+      });
+    });
+  });
+  return pc;
+}
+function pairScore(pid,gids,hist){return gids.reduce((s,id)=>{const k=[pid,id].sort().join('|');return s+(hist.get(k)||0);},0);}
+
+// Group management
+function openGroupModal(id){_editGrpId=id||null;el('group-modal-title').textContent=id?'Edit Group':'New Group';el('gm-name').value=id&&S.groups[id]?S.groups[id].name:'';showModal('groupModal');}
+function saveGroup(){
+  const name=el('gm-name').value.trim();if(!name)return toast('Group name required');
+  if(_editGrpId&&S.groups[_editGrpId])S.groups[_editGrpId].name=name;
+  else{const id=uid();S.groups[id]={id,name,players:[],trips:{}};S.activeGroupId=id;}
+  closeModal('groupModal');scheduleWrite();renderTrips();
+}
+function deleteGroup(id){confirmDo('Delete Group','Delete this group and ALL its data? Cannot be undone.',()=>{delete S.groups[id];if(S.activeGroupId===id){S.activeGroupId=null;S.activeTripId=null;S.activeRound=null;}scheduleWrite();renderTrips();});}
+function selectGroup(id){S.activeGroupId=id;S.activeTripId=null;S.activeRound=null;saveLocal();renderTrips();}
+
+// Player management
+function openPlayerModal(id){
+  const g=G();if(!g)return;_editPlyId=id||null;
+  el('player-modal-title').textContent=id?'Edit Player':'Add Player';
+  if(id){const p=(g.players||[]).find(x=>x.id===id)||{};el('pm-name').value=p.name||'';el('pm-ghin').value=p.ghin||'';el('pm-phone').value=p.phone?formatPhone(decodePhone(p.phone)):'';}
+  else{el('pm-name').value='';el('pm-ghin').value='';el('pm-phone').value='';}
+  showModal('playerModal');
+}
+function savePlayer(){
+  const g=G();if(!g)return;
+  const name=el('pm-name').value.trim();if(!name)return toast('Name required');
+  const ghin=el('pm-ghin').value.replace(/\D/g,'');const phone=encodePhone(el('pm-phone').value);
+  if(!g.players)g.players=[];
+  if(_editPlyId){const p=g.players.find(x=>x.id===_editPlyId);if(p){p.name=name;p.ghin=ghin;p.phone=phone;}}
+  else g.players.push({id:uid(),name,ghin,phone,hcp:0});
+  closeModal('playerModal');scheduleWrite();renderTrips();toast('Player saved \u2713');
+}
+function deletePlayer(id){
+  const g=G();if(!g)return;
+  confirmDo('Remove Player','Remove this player from the group?',()=>{g.players=(g.players||[]).filter(p=>p.id!==id);appLog('Player deleted: '+id);scheduleWrite();renderTrips();});
+}
+
+// Player import
+async function importFromExtras(league){
+  const g=G();if(!g)return;
+  const status=el('import-status');status.textContent=`Loading ${league.toUpperCase()} roster\u2026`;
+  try{
+    const r=await fetchWithTimeout(EXTRAS_URL,{},10000);const d=await r.json();
+    const raw=d&&d.leagues&&d.leagues[league]&&d.leagues[league].players;
+    const arr=!raw?[]:Array.isArray(raw)?raw:Object.values(raw);
+    if(!arr.length){status.textContent=`No players found in ${league.toUpperCase()} roster.`;return;}
+    if(!g.players)g.players=[];
+    let imported=0,updated=0;
+    arr.forEach(p=>{
+      if(!p||!p.name)return;
+      const ex=g.players.find(x=>x.name.toLowerCase()===p.name.toLowerCase());
+      if(ex){let c=false;if(p.phone&&!ex.phone){ex.phone=p.phone;c=true;}if(p.ghin&&!ex.ghin){ex.ghin=p.ghin;c=true;}if(p.hcp&&!ex.hcp){ex.hcp=p.hcp;c=true;}if(c)updated++;}
+      else{g.players.push({id:uid(),name:p.name,ghin:p.ghin||'',hcp:typeof p.hcp==='number'?p.hcp:0,phone:p.phone||''});imported++;}
+    });
+    scheduleWrite();renderTrips();status.textContent=`Done: ${imported} added, ${updated} updated.`;
+    appLog(`Extras import (${league}): ${imported} added, ${updated} updated`);
+  }catch(e){status.textContent='Import failed: '+e.message;appLog('Extras import failed: '+e.message);}
+}
+function importFromCSV(){
+  const input=el('csv-file-input');if(!input.files||!input.files[0])return toast('Select a CSV file first');
+  const g=G();if(!g)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split('\n').map(l=>l.trim()).filter(Boolean);
+    let imported=0,updated=0,skipped=0;if(!g.players)g.players=[];
+    lines.forEach((line,idx)=>{
+      if(idx===0&&line.toLowerCase().startsWith('name'))return;
+      const parts=line.split(',').map(p=>p.trim().replace(/^"|"$/g,''));
+      const name=parts[0];if(!name){skipped++;return;}
+      const ghin=(parts[1]||'').replace(/\D/g,'');const phone=encodePhone((parts[2]||'').replace(/\D/g,''));
+      const ex=g.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
+      if(ex){let c=false;if(ghin&&!ex.ghin){ex.ghin=ghin;c=true;}if(phone&&!ex.phone){ex.phone=phone;c=true;}if(c)updated++;}
+      else{g.players.push({id:uid(),name,ghin,phone,hcp:0});imported++;}
+    });
+    scheduleWrite();renderTrips();
+    el('import-status').textContent=`Done: ${imported} added, ${updated} updated${skipped?`, ${skipped} skipped`:''}. `;
+    appLog(`CSV import: ${imported} added, ${updated} updated`);
+  };
+  reader.readAsText(input.files[0]);
+}
+
+// Trip management
+function openTripModal(id){
+  const g=G();if(!g)return;_editTripId=id||null;
+  el('trip-modal-title').textContent=id?'Edit Trip':'New Trip';
+  if(id&&g.trips&&g.trips[id]){const t=g.trips[id];el('tm-dest').value=t.destination||'';el('tm-start').value=t.startDate||'';el('tm-end').value=t.endDate||'';}
+  else{el('tm-dest').value='';el('tm-start').value='';el('tm-end').value='';}
+  showModal('tripModal');
+}
+function saveTrip(){
+  const g=G();if(!g)return;
+  const dest=el('tm-dest').value.trim(),start=el('tm-start').value,end=el('tm-end').value;
+  if(!dest)return toast('Destination required');if(!start||!end)return toast('Dates required');if(end<start)return toast('End must be on or after start');
+  if(!g.trips)g.trips={};
+  if(_editTripId&&g.trips[_editTripId])Object.assign(g.trips[_editTripId],{destination:dest,startDate:start,endDate:end});
+  else{const id=uid();g.trips[id]={id,destination:dest,startDate:start,endDate:end,playerIds:[],courses:[],days:{}};S.activeTripId=id;}
+  closeModal('tripModal');scheduleWrite();renderTrips();
+}
+function selectTrip(id){S.activeTripId=id;saveLocal();renderTrips();}
+function deleteTrip(id){
+  const g=G();if(!g)return;
+  confirmDo('Delete Trip','Delete this trip and all rounds and scores?',()=>{delete g.trips[id];if(S.activeTripId===id){S.activeTripId=null;S.activeRound=null;}scheduleWrite();renderTrips();});
+}
+function openRosterModal(){
+  const t=T(),g=G();if(!t||!g)return;
+  el('roster-list').innerHTML=(g.players||[]).map(p=>`<div class="check-item"><input type="checkbox" id="rp_${p.id}" value="${p.id}" ${(t.playerIds||[]).includes(p.id)?'checked':''}><label for="rp_${p.id}">${esc(p.name)}</label><span class="hcp-tag">HI ${fmtHcp(p.hcp)}</span></div>`).join('');
+  showModal('rosterModal');
+}
+function saveTripRoster(){const t=T();if(!t)return;t.playerIds=Array.from(document.querySelectorAll('#roster-list input:checked')).map(i=>i.value);closeModal('rosterModal');scheduleWrite();renderTrips();toast('Roster saved \u2713');}
+
+// Course management
+function openCourseModal(id){
+  const t=T();if(!t)return;_editCrsId=id||null;_importedTees=[];
+  el('course-modal-title').textContent=id?'Edit Course':'Add Course';
+  el('cm-bg-url').value='';el('cm-bg-status').textContent='';el('cm-bg-tees').innerHTML='';
+  if(id){const c=(t.courses||[]).find(x=>x.id===id)||{};el('cm-name').value=c.name||'';el('cm-slope').value=c.slope||'';el('cm-rating').value=c.rating||'';el('cm-par').value=c.par||'';el('cm-holes').value=(c.holes&&c.holes.length===9)?'9':'18';}
+  else{el('cm-name').value='';el('cm-slope').value='';el('cm-rating').value='';el('cm-par').value='';el('cm-holes').value='18';}
+  showModal('courseModal');
+}
+async function fetchBluegolf(){
+  const raw=el('cm-bg-url').value.trim();if(!raw)return toast('Enter a BlueGolf URL or slug');
+  let url=raw;
+  if(!raw.startsWith('http')){const slug=raw.replace(/\/+$/,'').split('/').pop();url=`https://course.bluegolf.com/bluegolf/course/course/${slug}/detailedscorecard.htm`;}
+  else if(raw.includes('bluegolf.com')&&!raw.includes('detailedscorecard'))url=raw.replace(/\/+$/,'')+'/detailedscorecard.htm';
+  const status=el('cm-bg-status'),teesEl=el('cm-bg-tees');
+  status.textContent='Fetching\u2026';teesEl.innerHTML='';_importedTees=[];
+  try{
+    const proxy=(S.config.ghinProxyUrl||GHIN_PROXY)+'/bluegolf?url='+encodeURIComponent(url);
+    const resp=await fetchWithTimeout(proxy,{},15000);
+    const data=await resp.json().catch(()=>({}));
+    if(!resp.ok)throw new Error(data.error||'HTTP '+resp.status);
+    if(data.error)throw new Error(data.error);
+    const all=data.tees||[];if(!all.length)throw new Error('No tee data found');
+    _importedTees=all;
+    status.textContent=(data.courseName||'Course found')+` \u00B7 ${all.length} tee${all.length!==1?'s':''} available`;
+    teesEl.innerHTML=all.map((t,i)=>`<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--surf3);cursor:pointer;"><input type="checkbox" data-idx="${i}" style="width:16px;height:16px;accent-color:var(--gold);" checked><div><div style="font-size:13px;font-weight:600;">${esc(t.teeName)}</div><div style="font-size:11px;color:var(--muted);">Slope ${t.slope} \u00B7 Rating ${t.rating} \u00B7 Par ${t.par} \u00B7 ${t.nineHole?9:18} holes</div></div></label>`).join('');
+  }catch(e){status.textContent='Error: '+e.message;appLog('BlueGolf fetch failed: '+e.message);}
+}
+function saveCourse(){
+  const t=T();if(!t)return;
+  const checkedTees=Array.from(el('cm-bg-tees').querySelectorAll('input[type=checkbox]:checked')).map(cb=>_importedTees[parseInt(cb.dataset.idx)]).filter(Boolean);
+  if(checkedTees.length){
+    if(!t.courses)t.courses=[];
+    checkedTees.forEach(tee=>{
+      const ex=_editCrsId?t.courses.find(x=>x.id===_editCrsId):null;
+      if(ex)Object.assign(ex,{name:tee.teeName,slope:tee.slope,rating:tee.rating,par:tee.par,nineHole:tee.nineHole||false,holes:tee.holes||[]});
+      else t.courses.push({id:uid(),name:tee.teeName,slope:tee.slope,rating:tee.rating,par:tee.par,nineHole:tee.nineHole||false,holes:tee.holes||[]});
+    });
+    closeModal('courseModal');scheduleWrite();renderTrips();toast(`${checkedTees.length} course${checkedTees.length!==1?'s':''} saved \u2713`);return;
+  }
+  const name=el('cm-name').value.trim();if(!name)return toast('Course name required');
+  const slope=parseFloat(el('cm-slope').value)||113,rating=parseFloat(el('cm-rating').value)||72,par=parseInt(el('cm-par').value)||72,nHoles=parseInt(el('cm-holes').value)||18;
+  const parPer=Math.round(par/nHoles);const holes=Array.from({length:nHoles},(_,i)=>({num:i+1,par:parPer,hcpRating:i+1}));
+  if(!t.courses)t.courses=[];
+  if(_editCrsId){const c=t.courses.find(x=>x.id===_editCrsId);if(c)Object.assign(c,{name,slope,rating,par,nineHole:nHoles===9,holes});}
+  else t.courses.push({id:uid(),name,slope,rating,par,nineHole:nHoles===9,holes});
+  closeModal('courseModal');scheduleWrite();renderTrips();toast('Course saved \u2713');
+}
+function deleteCourse(id){const t=T();if(!t)return;confirmDo('Remove Course','Remove this course from the trip?',()=>{t.courses=(t.courses||[]).filter(c=>c.id!==id);scheduleWrite();renderTrips();});}
+
+// Round management
+function openRoundModal(dayIdx,rndIdx){
+  const t=T();if(!t)return;
+  const days=tripDays(t),dateStr=days[dayIdx];_editRndCtx={dayIdx,rndIdx,dateStr};
+  const ex=rndIdx!=null&&t.days&&t.days[dateStr]&&t.days[dateStr].rounds&&t.days[dateStr].rounds[rndIdx];
+  el('round-modal-title').textContent=ex?'Edit Round':'Add Round';
+  el('rm-label').value=ex?ex.label:'';el('rm-format').value=ex?ex.format:'stroke';el('rm-nine').value=ex?ex.nineMode:'all';el('rm-champ').checked=!!(ex&&ex.championship);
+  const courses=tripCourses();
+  el('rm-course').innerHTML=courses.length?courses.map(c=>`<option value="${c.id}" ${ex&&ex.courseId===c.id?'selected':''}>${esc(c.name)}</option>`).join(''):'<option value="">No courses added</option>';
+  _roundTTs=ex?[...ex.teeTimes||[]]:[];renderRoundTTs();showModal('roundModal');
+}
+function renderRoundTTs(){el('rm-teetimes').innerHTML=_roundTTs.length?_roundTTs.map((t,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span style="flex:1;font-size:13px;font-weight:600;">${esc(t)}</span><button type="button" class="btn btn-sm btn-outline" style="font-size:11px;padding:4px 8px;" onclick="removeTT(${i})">\u2715</button></div>`).join(''):'<div style="font-size:12px;color:var(--muted);">No tee times added.</div>';}
+function addTeeTime(){const v=el('rm-newtt').value.trim();if(!v)return;_roundTTs.push(v);el('rm-newtt').value='';renderRoundTTs();}
+function removeTT(i){_roundTTs.splice(i,1);renderRoundTTs();}
+function saveRoundModal(){
+  const t=T();if(!t)return;
+  const {dayIdx,rndIdx,dateStr}=_editRndCtx;
+  const courseId=el('rm-course').value;if(!courseId)return toast('Add a course to the trip first');
+  const label=el('rm-label').value.trim()||el('rm-format').value,format=el('rm-format').value,nineMode=el('rm-nine').value,championship=el('rm-champ').checked;
+  if(!t.days)t.days={};if(!t.days[dateStr])t.days[dateStr]={rounds:[]};
+  const rnd={id:uid(),label,courseId,format,nineMode,championship,teeTimes:[..._roundTTs],groups:[],scores:{},completed:false};
+  if(rndIdx!=null&&t.days[dateStr].rounds[rndIdx])Object.assign(t.days[dateStr].rounds[rndIdx],{label,courseId,format,nineMode,championship,teeTimes:[..._roundTTs]});
+  else{if((t.days[dateStr].rounds||[]).length>=2)return toast('Max 2 rounds per day');t.days[dateStr].rounds.push(rnd);}
+  closeModal('roundModal');scheduleWrite();renderSchedule();toast('Round saved \u2713');
+}
+function deleteRound(dayIdx,rndIdx){
+  const t=T();if(!t)return;const dateStr=tripDays(t)[dayIdx];
+  confirmDo('Delete Round','Delete this round and all its scores?',()=>{t.days[dateStr].rounds.splice(rndIdx,1);scheduleWrite();renderSchedule();});
+}
+
+// ═══ TRIPS TAB ═══
+function renderTrips(){
+  const b=el('trips-body');if(!b)return;
+  const groups=Object.values(S.groups||{});
+  if(!groups.length){b.innerHTML=`<div style="text-align:center;padding:48px 20px;"><div style="font-size:52px;margin-bottom:16px;">&#9971;</div><div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;color:var(--g800);margin-bottom:8px;">Welcome to Golf Trip</div><div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;">Start by creating a group &mdash; your regular playing partners.</div><button class="btn btn-gold btn-full" onclick="openGroupModal()">+ Create a Group</button></div>`;return;}
+  if(!S.activeGroupId||!S.groups[S.activeGroupId]){
+    b.innerHTML=`<div class="sec-hdr"><div class="sec-title">Your Groups</div><button class="btn btn-sm btn-gold" onclick="openGroupModal()">+ New</button></div>${groups.map(g=>`<div class="list-item" style="cursor:pointer;" onclick="selectGroup('${g.id}')"><div><div class="li-main">${esc(g.name)}</div><div class="li-sub">${(g.players||[]).length} players &middot; ${Object.keys(g.trips||{}).length} trips</div></div><div class="li-actions"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openGroupModal('${g.id}')">Edit</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteGroup('${g.id}')">\u2715</button></div></div>`).join('')}<div class="bottom-spacer"></div>`;return;
+  }
+  const g=G();
+  const trips=Object.values(g.trips||{}).sort((a,b)=>b.startDate.localeCompare(a.startDate));
+  if(!S.activeTripId||!g.trips[S.activeTripId]){
+    let rejoin='';
+    const at=Object.values(g.trips||{}).find(t=>inWindow(t)&&S.activeTripId===t.id);
+    if(at)rejoin=`<div class="card" style="background:var(--g800);"><div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:var(--gold);margin-bottom:4px;">ACTIVE TRIP</div><div style="font-size:14px;color:#fff;margin-bottom:12px;">${esc(at.destination)} &middot; ${fmtShort(at.startDate)}&ndash;${fmtShort(at.endDate)}</div><button class="btn btn-gold btn-full" onclick="showTab('schedule')">Go to Schedule &rarr;</button></div>`;
+    b.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><button class="btn btn-sm btn-outline" onclick="S.activeGroupId=null;saveLocal();renderTrips();">&larr; Groups</button><div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--g800);flex:1;">${esc(g.name)}</div><button class="btn btn-sm btn-outline" onclick="openGroupModal('${g.id}')">Edit</button></div>${rejoin}
+    <div class="sec-hdr"><div class="sec-title">Players</div><div style="display:flex;gap:6px;"><button class="btn btn-sm btn-outline" onclick="showModal('importModal')">&uarr; Import</button><button class="btn btn-sm btn-outline" onclick="showModal('ghinModal')">&#9971; GHIN</button><button class="btn btn-sm btn-gold" onclick="openPlayerModal()">+ Add</button></div></div>
+    ${(g.players||[]).length?(g.players||[]).map(p=>`<div class="list-item"><div><div class="li-main">${esc(p.name)}</div><div class="li-sub">HI ${fmtHcp(p.hcp)}${p.ghin?' &middot; GHIN '+p.ghin:''}${p.phone?' &middot; '+formatPhone(decodePhone(p.phone)):''}</div></div><div class="li-actions"><button class="btn btn-sm btn-outline" onclick="openPlayerModal('${p.id}')">Edit</button><button class="btn btn-sm btn-danger" onclick="deletePlayer('${p.id}')">\u2715</button></div></div>`).join(''):'<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">No players yet.</div>'}
+    <div class="sec-hdr" style="margin-top:8px;"><div class="sec-title">Trips</div><button class="btn btn-sm btn-gold" onclick="openTripModal()">+ New Trip</button></div>
+    ${trips.length?trips.map(t=>`<div class="list-item" style="cursor:pointer;" onclick="selectTrip('${t.id}')"><div><div class="li-main">${esc(t.destination)}</div><div class="li-sub">${fmtShort(t.startDate)} &ndash; ${fmtShort(t.endDate)} &middot; ${(t.playerIds||[]).length} players</div></div><div class="li-actions">${inWindow(t)?'<span class="li-badge green">ACTIVE</span>':''}<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteTrip('${t.id}')">\u2715</button></div></div>`).join(''):'<div class="empty"><div class="empty-icon">&#9992;&#65039;</div><p>No trips yet.</p></div>'}
+    <div class="bottom-spacer"></div>`;return;
+  }
+  const t=T();const days=tripDays(t);const ok=(t.playerIds||[]).length>=2&&(t.courses||[]).length>=1;
+  b.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><button class="btn btn-sm btn-outline" onclick="S.activeTripId=null;saveLocal();renderTrips();">&larr; Trips</button><div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--g800);flex:1;">${esc(t.destination)}</div><button class="btn btn-sm btn-outline" onclick="openTripModal('${t.id}')">Edit</button></div>
+  <div class="card" style="padding:12px 14px;"><div style="font-size:13px;color:var(--muted);">${fmtDate(t.startDate)} &ndash; ${fmtDate(t.endDate)} &middot; ${days.length} day${days.length!==1?'s':''}</div>${!ok?'<div style="font-size:12px;color:#e67e22;margin-top:6px;">&#9888; Add at least 2 players and 1 course before building the schedule.</div>':''}</div>
+  <div class="sec-hdr"><div class="sec-title">Courses</div><button class="btn btn-sm btn-gold" onclick="openCourseModal()">+ Add</button></div>
+  ${(t.courses||[]).length?(t.courses||[]).map(c=>`<div class="list-item"><div><div class="li-main">${esc(c.name)}</div><div class="li-sub">Slope ${c.slope} &middot; Rating ${c.rating} &middot; Par ${c.par} &middot; ${c.nineHole?'9':'18'} holes</div></div><div class="li-actions"><button class="btn btn-sm btn-outline" onclick="openCourseModal('${c.id}')">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteCourse('${c.id}')">\u2715</button></div></div>`).join(''):'<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">No courses yet.</div>'}
+  <div class="sec-hdr" style="margin-top:8px;"><div class="sec-title">Trip Roster (${(t.playerIds||[]).length})</div><button class="btn btn-sm btn-gold" onclick="openRosterModal()">Manage &rarr;</button></div>
+  ${(t.playerIds||[]).length?`<div class="card" style="padding:10px 14px;">${(t.playerIds||[]).map(id=>{const p=playerById(id);return p?`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--surf3);"><span style="font-size:13px;font-weight:600;">${esc(p.name)}</span><span style="font-size:11px;color:var(--muted);">HI ${fmtHcp(p.hcp)}</span></div>`:'';}).join('')}</div>`:'<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">No players selected.</div>'}
+  <div class="sec-hdr" style="margin-top:8px;"><div class="sec-title">Schedule</div><button class="btn btn-sm btn-outline" onclick="showTab('schedule')">View &rarr;</button></div>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">${days.length} days &middot; ${days.reduce((a,d)=>{const dr=t.days&&t.days[d];return a+((dr&&dr.rounds)?dr.rounds.length:0);},0)} rounds defined</div>
+  <div class="bottom-spacer"></div>`;
+}
+
+// ═══ SCHEDULE TAB ═══
+function renderSchedule(){
+  const b=el('schedule-body');if(!b)return;
+  const t=T();if(!t){b.innerHTML='<div class="empty"><div class="empty-icon">&#128197;</div><p>Select a trip first.</p></div>';return;}
+  const days=tripDays(t);
+  let html=`<div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--g800);margin-bottom:4px;">${esc(t.destination)}</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px;">${fmtDate(t.startDate)} &ndash; ${fmtDate(t.endDate)}</div>`;
+  if(!(t.courses||[]).length)html+=`<div class="card"><div style="font-size:13px;color:var(--muted);">Add courses in the Trip detail before scheduling rounds.</div></div>`;
+  days.forEach((dateStr,di)=>{
+    const dr=t.days&&t.days[dateStr];const rounds=(dr&&dr.rounds)||[];
+    html+=`<div class="day-card"><div class="day-card-hdr"><span class="day-label">${dayLabel(dateStr,di)}</span>${rounds.length<2&&(t.courses||[]).length?`<button class="btn btn-sm btn-gold" style="font-size:11px;padding:5px 10px;" onclick="openRoundModal(${di},null)">+ Round</button>`:''}</div>`;
+    if(!rounds.length)html+=`<div class="round-row"><span style="font-size:13px;color:var(--muted);">No rounds scheduled.</span></div>`;
+    rounds.forEach((r,ri)=>{
+      const c=courseById(r.courseId);
+      const nine=r.nineMode==='all'?'18 holes':r.nineMode==='front'?'Front 9':'Back 9';
+      const tt=r.teeTimes&&r.teeTimes.length?` &middot; First tee: ${r.teeTimes[0]}`:'';
+      const gs=r.groups&&r.groups.length?`<div style="font-size:11px;color:var(--muted);margin-top:3px;">${r.groups.map((g,gi)=>`${r.teeTimes[gi]||('G'+(gi+1))}: ${(g.playerIds||[]).map(id=>firstOf((playerById(id)||{name:id}).name)).join('/')}`).join(' &middot; ')}</div>`:'';
+      html+=`<div class="round-row"><div class="round-info"><div class="round-label-txt">${fmtBadge(r.format,r.championship)} ${esc(r.label)}</div><div class="round-sub">${c?esc(c.name):'?'} &middot; ${nine}${tt}${r.completed?' &middot; <span class="li-badge green">Done</span>':''}</div>${gs}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;"><button class="btn btn-sm btn-outline" style="font-size:11px;" onclick="openRoundModal(${di},${ri})">Edit</button>${!r.completed?`<button class="btn btn-sm btn-gold" style="font-size:11px;" onclick="startScoring(${di},${ri})">Score &rarr;</button>`:''}${adminMode?`<button class="btn btn-sm btn-danger" style="font-size:11px;" onclick="deleteRound(${di},${ri})">\u2715</button>`:''}</div></div>`;
+    });
+    html+='</div>';
+  });
+  html+=`<div style="margin-top:14px;"><button class="btn btn-outline btn-full" onclick="sendSchedule()">&#128242; Send Schedule</button></div><div class="bottom-spacer"></div>`;
+  b.innerHTML=html;
+}
+function sendSchedule(){
+  const t=T(),g=G();if(!t||!g)return;
+  let msg=`${t.destination} \u2014 ${fmtShort(t.startDate)} to ${fmtShort(t.endDate)}\n\n`;
+  tripDays(t).forEach((d,di)=>{const dr=t.days&&t.days[d];const rounds=(dr&&dr.rounds)||[];if(!rounds.length)return;msg+=`Day ${di+1} \u2014 ${fmtShort(d)}\n`;rounds.forEach(r=>{const c=courseById(r.courseId);msg+=`  ${r.label}: ${c?c.name:'?'} (${fmtLabel(r.format)})${r.teeTimes&&r.teeTimes.length?' \u00B7 '+r.teeTimes[0]:''}\n`;});msg+='\n';});
+  const phones=(t.playerIds||[]).map(id=>playerById(id)).filter(p=>p&&p.phone).map(p=>decodePhone(p.phone).replace(/\D/g,''));
+  if(!phones.length)return toast('No players with phone numbers');
+  const iOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  window.location.href=`sms:${phones.join(',')}${iOS?'&':'?'}body=${encodeURIComponent(msg)}`;
+}
+
+// ═══ SCORING ═══
+function scorePhase(name){
+  document.querySelectorAll('.scoring-phase').forEach(e=>e.classList.remove('active-phase'));
+  const ph=el(`score-phase-${name}`);if(ph)ph.classList.add('active-phase');
+  const tab=el('tab-scoring-content');
+  if(name==='pick'){tab.style.overflow='';ph.style.overflowY='auto';ph.style.padding='14px';ph.style.paddingBottom='80px';}
+  else tab.style.overflow='hidden';
+  if(name==='groups')renderGroups();
+  if(name==='scores')renderScoreEntry();
+  if(name==='results')renderResults();
+}
+function renderScoringPick(){
+  const b=el('score-pick-body');if(!b)return;scorePhase('pick');
+  const t=T();if(!t){b.innerHTML='<div class="empty"><div class="empty-icon">&#127948;</div><p>Select a trip to score.</p></div>';return;}
+  let html=`<div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--g800);margin-bottom:12px;">Select a Round</div>`;
+  let any=false;
+  tripDays(t).forEach((dateStr,di)=>{
+    const dr=t.days&&t.days[dateStr];const rounds=(dr&&dr.rounds)||[];
+    rounds.forEach((r,ri)=>{const c=courseById(r.courseId);if(!c)return;any=true;
+      html+=`<div class="list-item" style="cursor:pointer;" onclick="startScoring(${di},${ri})"><div><div class="li-main">Day ${di+1} \u2014 ${esc(r.label)}</div><div class="li-sub">${esc(c.name)} &middot; ${fmtLabel(r.format)} &middot; ${r.nineMode==='all'?'18h':r.nineMode==='front'?'F9':'B9'} &middot; ${fmtShort(dateStr)}</div></div><div class="li-actions">${fmtBadge(r.format,r.championship)}${r.completed?'<span class="li-badge green">Done</span>':''}</div></div>`;});
+  });
+  if(!any)html+=`<div class="empty"><div class="empty-icon">&#128203;</div><p>No rounds in schedule yet.</p></div>`;
+  b.innerHTML=html+`<div class="bottom-spacer"></div>`;
+}
+function startScoring(dayIdx,rndIdx){S.activeRound={dayIdx,rndIdx};saveLocal();showTab('scoring');scorePhase('groups');appLog(`Scoring started: day ${dayIdx} round ${rndIdx}`);}
+
+function renderGroups(){
+  const r=getRound(),t=T();if(!r||!t){el('groups-body').innerHTML='';return;}
+  el('groups-title').textContent=`Groups \u2014 ${r.label}`;
+  const plys=(t.playerIds||[]).map(id=>playerById(id)).filter(Boolean);
+  const tts=r.teeTimes||[];
+  let html='';
+  if(r.groups&&r.groups.length){
+    r.groups.forEach((g,gi)=>{html+=`<div class="card" style="margin-bottom:8px;"><div class="card-title" style="margin-bottom:6px;">${tts[gi]?esc(tts[gi]):'Group '+(gi+1)}</div>${(g.playerIds||[]).map(id=>{const p=playerById(id);return p?`<div style="font-size:13px;font-weight:600;padding:2px 0;">${esc(p.name)} <span style="font-size:11px;color:var(--muted);">HI ${fmtHcp(p.hcp)}</span></div>`:'';}).join('')}</div>`;});
+    html+=`<button class="btn btn-outline btn-full" style="margin-bottom:8px;" onclick="openGroupEdit()">\u270F Edit Groups</button>`;
+  }else{
+    html=`<div class="empty"><div class="empty-icon">&#128101;</div><p>Tap Generate to assign groups, or Edit to assign manually.</p></div><button class="btn btn-outline btn-full" style="margin-bottom:8px;" onclick="openGroupEdit()">\u270F Assign Manually</button>`;
+  }
+  const assigned=new Set((r.groups||[]).flatMap(g=>g.playerIds||[]));
+  const unassigned=plys.filter(p=>!assigned.has(p.id));
+  if(unassigned.length){html+=`<div class="section-label">Unassigned</div>`;unassigned.forEach(p=>{html+=`<div class="list-item"><div class="li-main">${esc(p.name)}</div><span class="li-badge grey">HI ${fmtHcp(p.hcp)}</span></div>`;});}
+  el('groups-body').innerHTML=html;
+}
+
+function generateGroups(){
+  const r=getRound(),t=T();if(!r||!t)return;
+  const c=courseById(r.courseId);if(!c)return toast('No course data');
+  const plys=(t.playerIds||[]).map(id=>playerById(id)).filter(Boolean);if(!plys.length)return toast('No players on trip roster');
+  const is9=r.nineMode!=='all';
+  const tts=r.teeTimes||[];
+  const numGroups=Math.max(1,Math.min(tts.length||Math.ceil(plys.length/4),Math.ceil(plys.length/2)));
+  const withHcp=plys.map(p=>({...p,ch:calcCourseHcp(p.hcp||0,c.slope||113,c.rating||72,c.par||72,is9)}));
+
+  if(r.championship){
+    // Worst to best — unranked first, leaders (lowest net = rank 0) play last
+    const board=leaderboard();const rank={};board.forEach((e,i)=>rank[e.playerId]=i);
+    const sorted=[...withHcp].sort((a,b)=>{const ra=rank[a.id]??-1,rb=rank[b.id]??-1;return ra-rb;});
+    const groups=Array.from({length:numGroups},()=>({playerIds:[]}));
+    sorted.forEach((p,i)=>groups[i%numGroups].playerIds.push(p.id));
+    r.groups=groups.filter(g=>g.playerIds.length);
+  }else if(S.settings.groupMethod==='random'){
+    const sh=[...withHcp].sort(()=>Math.random()-0.5);
+    const groups=Array.from({length:numGroups},()=>({playerIds:[]}));
+    sh.forEach((p,i)=>groups[i%numGroups].playerIds.push(p.id));
+    r.groups=groups.filter(g=>g.playerIds.length);
+  }else{
+    // ABCD with pair history
+    const hist=getTripPairHistory();
+    const ordered=[...withHcp].sort((a,b)=>a.ch-b.ch);
+    const half=Math.floor(ordered.length/2);
+    const As=[...ordered.slice(0,half)].sort(()=>Math.random()-0.5);
+    const Bs=[...ordered.slice(half)].sort(()=>Math.random()-0.5);
+    const groups=Array.from({length:numGroups},()=>({playerIds:[]}));
+    As.forEach((p,i)=>groups[i%numGroups].playerIds.push(p.id));
+    Bs.forEach(p=>{const best=groups.reduce((b,g,gi)=>pairScore(p.id,g.playerIds,hist)<pairScore(p.id,groups[b].playerIds,hist)?gi:b,0);groups[best].playerIds.push(p.id);});
+    r.groups=groups.filter(g=>g.playerIds.length);
+  }
+  scheduleWrite();renderGroups();toast(`${r.groups.length} groups generated \u2713`);
+}
+
+function openGroupEdit(){
+  const r=getRound(),t=T();if(!r||!t)return;
+  const tts=r.teeTimes||[];
+  const numGroups=Math.max(tts.length||1,r.groups&&r.groups.length?r.groups.length:1);
+  _grpEditState=Array.from({length:numGroups},(_,i)=>({teetime:tts[i]||'Group '+(i+1),playerIds:[...(r.groups&&r.groups[i]?r.groups[i].playerIds:[])]}));
+  _selectedPlayer=null;renderGroupEdit();showModal('grpEditModal');
+}
+function renderGroupEdit(){
+  const t=T();if(!t)return;
+  const assigned=new Set(_grpEditState.flatMap(g=>g.playerIds));
+  const allPlys=(t.playerIds||[]).map(id=>playerById(id)).filter(Boolean);
+  const unassigned=allPlys.filter(p=>!assigned.has(p.id));
+  let html='';
+  _grpEditState.forEach((g,gi)=>{
+    html+=`<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">${esc(g.teetime)}</div><div class="grp-slot" onclick="moveToGroup(${gi})">${g.playerIds.map(id=>{const p=playerById(id);return p?`<div class="grp-player" style="${_selectedPlayer===id?'outline:2px solid var(--gold);':''}" onclick="event.stopPropagation();selectGrpPlayer('${id}')"><span class="gp-name">${esc(p.name)}</span><span class="gp-hcp">HI ${fmtHcp(p.hcp)}</span></div>`:'';}).join('')}${g.playerIds.length===0?`<div style="font-size:12px;color:var(--muted);padding:6px;">Tap to place selected player here</div>`:''}</div></div>`;
+  });
+  if(unassigned.length){
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">Unassigned</div><div class="grp-slot" onclick="moveToGroup(-1)">${unassigned.map(p=>`<div class="grp-player" style="${_selectedPlayer===p.id?'outline:2px solid var(--gold);':''}" onclick="event.stopPropagation();selectGrpPlayer('${p.id}')"><span class="gp-name">${esc(p.name)}</span><span class="gp-hcp">HI ${fmtHcp(p.hcp)}</span></div>`).join('')}${unassigned.length===0?`<div style="font-size:12px;color:var(--muted);padding:6px;">All players assigned</div>`:''}</div>`;
+  }
+  el('grp-edit-body').innerHTML=html;
+}
+function selectGrpPlayer(id){_selectedPlayer=(_selectedPlayer===id)?null:id;renderGroupEdit();}
+function moveToGroup(gi){if(!_selectedPlayer)return;_grpEditState.forEach(g=>{g.playerIds=g.playerIds.filter(id=>id!==_selectedPlayer);});if(gi>=0&&gi<_grpEditState.length)_grpEditState[gi].playerIds.push(_selectedPlayer);_selectedPlayer=null;renderGroupEdit();}
+function saveGroupEdit(){const r=getRound();if(!r)return;r.groups=_grpEditState.map(g=>({playerIds:g.playerIds})).filter(g=>g.playerIds.length);closeModal('grpEditModal');scheduleWrite();renderGroups();toast('Groups saved \u2713');}
+
+function renderScoreEntry(){
+  const r=getRound(),t=T();if(!r||!t)return;
+  const c=courseById(r.courseId);if(!c)return;
+  el('scores-title').textContent=`Scores \u2014 ${r.label}`;
+  const is9=r.nineMode!=='all';const allHoles=c.holes||[];
+  const ah=r.nineMode==='front'?allHoles.slice(0,9):r.nineMode==='back'?allHoles.slice(9,18):allHoles;
+  const rowA=ah.slice(0,9),rowB=ah.slice(9),hcpScale=ah.length;
+  if(!r.scores)r.scores={};
+  const plys=(t.playerIds||[]).map(id=>playerById(id)).filter(Boolean);
+  const groups=r.groups&&r.groups.length?r.groups:[{playerIds:plys.map(p=>p.id)}];
+  const tts=r.teeTimes||[];
+  const colors=['#e8f5e9','#e3f2fd','#fff3e0','#f3e5f5','#fce4ec','#e8eaf6'];
+  const borders=['#27ae60','#2471a3','#e67e22','#8e44ad','#c0392b','#3949ab'];
+  function hdrRow(holes,label,totLabel){
+    const cols=`80px repeat(${holes.length},1fr) 36px`;
+    return `<div style="display:grid;grid-template-columns:${cols};gap:2px;margin-bottom:2px;"><div style="font-size:10px;font-weight:700;color:var(--muted);">${label}</div>${holes.map(h=>`<div class="hole-cell par-cell">${h.num}</div>`).join('')}<div style="background:var(--g800);color:rgba(255,255,255,.5);font-size:9px;font-weight:700;text-align:center;padding:4px 1px;border-radius:4px;">${totLabel}</div></div><div style="display:grid;grid-template-columns:${cols};gap:2px;margin-bottom:2px;"><div style="font-size:10px;font-weight:700;color:var(--muted);">Par</div>${holes.map(h=>`<div class="hole-cell par-cell">${h.par}</div>`).join('')}<div class="hole-cell total">${holes.reduce((a,h)=>a+h.par,0)}</div></div>`;
+  }
+  function scoreRow(p,holes,suffix){
+    const sc=r.scores[p.id]||{};
+    const ch=calcPlayingHcp(calcRawCourseHcp(p.hcp||0,c.slope||113,c.rating||72,c.par||72,is9),S.settings.strokeAllowance||100);
+    const tot=holes.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);
+    const cols=`80px repeat(${holes.length},1fr) 36px`;
+    const nm=p.name.trim().split(' ');
+    return `<div style="display:grid;grid-template-columns:${cols};gap:2px;margin-bottom:2px;"><div style="font-size:10px;font-weight:700;text-align:left;padding-left:4px;line-height:1.2;white-space:normal;overflow:hidden;" title="${esc(p.name)}">${nm.length>1?nm.map(esc).join('<br>'):esc(p.name)}<br><span style="color:var(--muted);font-weight:400;font-size:9px;">CH${ch}</span></div>${holes.map(h=>{const str=strokesOnHole(ch,h.hcpRating||h.hcp||0,hcpScale);const dot=str>0?`<span style="position:absolute;top:1px;right:2px;color:#c0392b;font-size:8px;">${'\u2022'.repeat(Math.min(str,3))}</span>`:'';return `<div style="position:relative;${str>0?'background:#fde8e8;':''}"><input type="number" min="1" max="15" value="${sc[h.num]!=null?sc[h.num]:''}" data-pid="${p.id}" data-hole="${h.num}" inputmode="numeric" oninput="onScoreInput(this)" style="width:100%;border:none;font-size:12px;text-align:center;padding:5px 1px;background:transparent;font-family:'DM Sans',sans-serif;outline:none;">${dot}</div>`;}).join('')}<div class="hole-cell total" id="${suffix}_${p.id}">${tot||''}</div></div>`;
+  }
+  let html='';
+  groups.forEach((grp,gi)=>{
+    const gp=(grp.playerIds||[]).map(id=>playerById(id)).filter(Boolean);if(!gp.length)return;
+    const gl=tts[gi]||`Group ${gi+1}`;
+    html+=`<div style="margin-bottom:20px;"><div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--g800);padding:8px 12px;background:${colors[gi%6]};border-left:4px solid ${borders[gi%6]};border-radius:6px 6px 0 0;">${gl} <span style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;letter-spacing:0;margin-left:6px;">${gp.map(p=>esc(p.name)).join(', ')}</span></div><div style="border:1px solid var(--surf3);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;padding:6px;">${hdrRow(rowA,rowB.length?'FRONT':'HOLES',rowB.length?'OUT':'TOT')}${gp.map(p=>scoreRow(p,rowA,'rA')).join('')}${rowB.length?`<div style="border-top:2px solid var(--surf3);padding-top:4px;margin-top:4px;">${hdrRow(rowB,'BACK','IN')}${gp.map(p=>scoreRow(p,rowB,'rB')).join('')}</div>`:''}<div style="border-top:2px solid var(--surf3);padding:6px 4px;margin-top:4px;">${gp.map(p=>{const sc=r.scores[p.id]||{};const tot=ah.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;"><span style="font-weight:600;">${esc(p.name)}</span><span style="font-weight:700;color:var(--g800);">Total: <span id="tot_${p.id}">${tot||'\u2014'}</span></span></div>`;}).join('')}</div></div></div>`;
+  });
+  el('scores-body').innerHTML=html;
+  _scoreInputs=Array.from(document.querySelectorAll('#scores-body input[type=number]'));
+}
+function onScoreInput(input){
+  const r=getRound();if(!r)return;
+  const pid=input.dataset.pid,hole=parseInt(input.dataset.hole),val=parseInt(input.value);
+  if(!r.scores)r.scores={};if(!r.scores[pid])r.scores[pid]={};
+  r.scores[pid][hole]=isNaN(val)||val<1?null:Math.min(val,15);
+  const c=courseById(r.courseId);if(!c)return;
+  const t=T();if(!t)return;
+  const ah=r.nineMode==='front'?(c.holes||[]).slice(0,9):r.nineMode==='back'?(c.holes||[]).slice(9,18):(c.holes||[]);
+  const rowA=ah.slice(0,9),rowB=ah.slice(9);const sc=r.scores[pid]||{};
+  const rA=rowA.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);
+  const rB=rowB.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);
+  const eA=el('rA_'+pid);if(eA)eA.textContent=rA||'';
+  const eB=el('rB_'+pid);if(eB)eB.textContent=rB||'';
+  const eT=el('tot_'+pid);if(eT)eT.textContent=(rA+rB)||'\u2014';
+  saveLocal();
+  if(!isNaN(val)&&val>=1){const i=_scoreInputs.indexOf(input);if(i>=0&&i<_scoreInputs.length-1)setTimeout(()=>{_scoreInputs[i+1].focus();_scoreInputs[i+1].select();},50);}
+}
+
+function renderResults(){
+  const r=getRound(),t=T();if(!r||!t)return;
+  const c=courseById(r.courseId);if(!c)return;
+  el('results-title').textContent=`Results \u2014 ${r.label}`;
+  const is9=r.nineMode!=='all';const allHoles=c.holes||[];
+  const ah=r.nineMode==='front'?allHoles.slice(0,9):r.nineMode==='back'?allHoles.slice(9,18):allHoles;
+  const plys=(t.playerIds||[]).map(id=>playerById(id)).filter(Boolean);
+  const sk=S.settings.skins||{};const skAdj=sk.hcpAdj||100;const sob=sk.strokeOffBest===true;
+  const results=plys.map(p=>{
+    const rawH=calcRawCourseHcp(p.hcp||0,c.slope||113,c.rating||72,c.par||72,is9);
+    const ch=calcPlayingHcp(rawH,S.settings.strokeAllowance||100);const skinsCh=calcPlayingHcp(rawH,skAdj);
+    const sc=r.scores[p.id]||{};const gross=ah.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);const net=gross?gross-ch:0;
+    let pts=0;if(r.format==='stableford')ah.forEach(h=>{const g2=parseInt(sc[h.num])||0;if(g2){const s2=strokesOnHole(ch,h.hcpRating||0,ah.length);pts+=sfPts((g2-s2)-h.par,S.settings);}});
+    return {p,ch,skinsCh,gross,net,pts,has:gross>0};
+  });
+  let html='';
+  if(isComp(r.format)){
+    const sorted=[...results].filter(x=>x.has).sort((a,b)=>r.format==='stableford'?b.pts-a.pts:a.net-b.net);
+    html+=`<div class="section-label">${r.format==='stableford'?'Stableford Points':'Net Strokes'}</div><table class="score-table"><thead><tr><th>#</th><th style="text-align:left;">Player</th><th>CH</th><th>Gross</th><th>${r.format==='stableford'?'Pts':'Net'}</th></tr></thead><tbody>`;
+    sorted.forEach((x,i)=>{html+=`<tr><td>${i+1}</td><td style="text-align:left;font-weight:600;">${esc(x.p.name)}</td><td>${x.ch}</td><td>${x.gross||'\u2014'}</td><td style="font-weight:700;">${r.format==='stableford'?x.pts:x.net}</td></tr>`;});
+    html+=`</tbody></table><div class="section-label" style="margin-top:12px;">Trip Leaderboard (Cumulative Net)</div>${renderLeaderboardHtml()}`;
+  }
+  if(r.format==='skins'){
+    const lowestCh=sob?Math.min(...results.map(x=>x.skinsCh)):null;const wins={};plys.forEach(p=>wins[p.id]=0);
+    ah.forEach(h=>{
+      const hr=results.filter(x=>x.has).map(x=>{const gross=parseInt((r.scores[x.p.id]||{})[h.num])||0;const eff=sob?Math.max(0,x.skinsCh-lowestCh):x.skinsCh;const str=strokesOnHole(eff,h.hcpRating||0,ah.length);return {id:x.p.id,net:gross>0?gross-str:null};}).filter(x=>x.net!==null);
+      if(!hr.length)return;const best=Math.min(...hr.map(x=>x.net));const winners=hr.filter(x=>x.net===best);if(winners.length===1)wins[winners[0].id]++;
+    });
+    const sorted=[...results].sort((a,b)=>(wins[b.p.id]||0)-(wins[a.p.id]||0));
+    html+=`<div class="section-label">Skins${sob?' (Stroke off Best)':''}</div><table class="score-table"><thead><tr><th style="text-align:left;">Player</th><th>Skins CH</th><th>Skins</th></tr></thead><tbody>`;
+    sorted.forEach(x=>{html+=`<tr><td style="text-align:left;font-weight:600;">${esc(x.p.name)}</td><td>${x.skinsCh}</td><td style="font-weight:700;">${wins[x.p.id]||0}</td></tr>`;});
+    html+='</tbody></table>';
+  }
+  if(r.format==='scramble'||r.format==='shamble'){
+    html+=`<div class="section-label">Team Scores</div>`;
+    (r.groups||[{playerIds:plys.map(p=>p.id)}]).forEach((g,gi)=>{const tts=r.teeTimes||[];const gp=(g.playerIds||[]).map(id=>playerById(id)).filter(Boolean);const gross=gp.reduce((a,p)=>{const sc=r.scores[p.id]||{};return a+ah.reduce((b,h)=>b+(parseInt(sc[h.num])||0),0);},0);html+=`<div class="list-item"><div><div class="li-main">${tts[gi]||'Group '+(gi+1)}: ${gp.map(p=>esc(p.name)).join(', ')}</div><div class="li-sub">Gross: ${gross}</div></div></div>`;});
+  }
+  if(r.format==='practice'){html+=`<div class="section-label">Practice Round</div>`;results.filter(x=>x.has).forEach(x=>{html+=`<div class="list-item"><div class="li-main">${esc(x.p.name)}</div><span class="li-badge grey">Gross ${x.gross}</span></div>`;});}
+  el('results-body').innerHTML=html||'<div class="empty"><p>Enter scores first.</p></div>';
+}
+function leaderboard(){
+  const t=T();if(!t)return [];const net={},rnds={};
+  tripDays(t).forEach(d=>{const dr=t.days&&t.days[d];if(!dr)return;(dr.rounds||[]).forEach(r=>{
+    if(!isComp(r.format)||!r.completed)return;const c=courseById(r.courseId);if(!c)return;
+    const is9=r.nineMode!=='all';const ah=r.nineMode==='front'?(c.holes||[]).slice(0,9):r.nineMode==='back'?(c.holes||[]).slice(9,18):(c.holes||[]);
+    Object.keys(r.scores||{}).forEach(pid=>{const p=playerById(pid);if(!p)return;
+      const ch=calcPlayingHcp(calcRawCourseHcp(p.hcp||0,c.slope,c.rating,c.par,is9),S.settings.strokeAllowance||100);
+      const sc=r.scores[pid]||{};const gross=ah.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);if(!gross)return;
+      net[pid]=(net[pid]||0)+(gross-ch);rnds[pid]=(rnds[pid]||0)+1;});});});
+  return Object.keys(net).map(pid=>({playerId:pid,totalNet:net[pid],rounds:rnds[pid]||0})).sort((a,b)=>a.totalNet-b.totalNet);
+}
+function renderLeaderboardHtml(){
+  const board=leaderboard();if(!board.length)return '<div style="font-size:13px;color:var(--muted);">No competitive rounds completed yet.</div>';
+  let html=`<table class="score-table"><thead><tr><th>#</th><th style="text-align:left;">Player</th><th>Net</th><th>Rounds</th></tr></thead><tbody>`;
+  board.forEach((e,i)=>{const p=playerById(e.playerId);html+=`<tr><td>${i+1}</td><td style="text-align:left;font-weight:600;">${p?esc(p.name):'?'}</td><td style="font-weight:700;">${e.totalNet}</td><td>${e.rounds}</td></tr>`;});
+  return html+'</tbody></table>';
+}
+function saveRound(){const r=getRound();if(!r)return;r.completed=true;appLog(`Round saved: ${r.label}`);scheduleWrite();S.activeRound=null;saveLocal();scorePhase('pick');showTab('scoring');toast('Round saved \u2713');}
+function confirmAbandon(){confirmDo('Abandon Round','Discard all scores for this round?',()=>{const r=getRound();if(r){r.scores={};r.groups=[];r.completed=false;}appLog('Round abandoned');S.activeRound=null;saveLocal();scorePhase('pick');});}
+
+// ═══ HISTORY ═══
+function renderHistory(){
+  const b=el('history-body');if(!b)return;
+  const t=T();if(!t){b.innerHTML='<div class="empty"><div class="empty-icon">&#128220;</div><p>Select a trip to view history.</p></div>';return;}
+  const days=tripDays(t);
+  let html=`<div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--g800);margin-bottom:4px;">${esc(t.destination)}</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px;">${fmtDate(t.startDate)} &ndash; ${fmtDate(t.endDate)}</div>`;
+  const board=leaderboard();if(board.length)html+=`<div class="card"><div class="card-title">Trip Leaderboard</div>${renderLeaderboardHtml()}</div>`;
+  let any=false;
+  days.forEach((d,di)=>{const dr=t.days&&t.days[d];if(!dr)return;(dr.rounds||[]).forEach(r=>{
+    if(!r.completed)return;any=true;const c=courseById(r.courseId);
+    const is9=r.nineMode!=='all';const aH=c?r.nineMode==='front'?(c.holes||[]).slice(0,9):r.nineMode==='back'?(c.holes||[]).slice(9,18):(c.holes||[]):[];
+    const plys=(t.playerIds||[]).map(id=>playerById(id)).filter(Boolean);
+    html+=`<div class="card"><div class="card-title">Day ${di+1} \u2014 ${esc(r.label)} ${fmtBadge(r.format,r.championship)}</div><div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${c?esc(c.name):'?'} &middot; ${fmtShort(d)}</div>`;
+    if(isComp(r.format)){
+      const res=plys.map(p=>{const ch=calcPlayingHcp(calcRawCourseHcp(p.hcp||0,c?c.slope:113,c?c.rating:72,c?c.par:72,is9),S.settings.strokeAllowance||100);const sc=r.scores[p.id]||{};const gross=aH.reduce((a,h)=>a+(parseInt(sc[h.num])||0),0);const net=gross?gross-ch:0;let pts=0;if(r.format==='stableford')aH.forEach(h=>{const g2=parseInt(sc[h.num])||0;if(g2){const s2=strokesOnHole(ch,h.hcpRating||0,aH.length);pts+=sfPts((g2-s2)-h.par,S.settings);}});return {p,ch,gross,net,pts,has:gross>0};}).filter(x=>x.has).sort((a,b)=>r.format==='stableford'?b.pts-a.pts:a.net-b.net);
+      html+=`<table class="score-table"><thead><tr><th>#</th><th style="text-align:left;">Player</th><th>Gross</th><th>${r.format==='stableford'?'Pts':'Net'}</th></tr></thead><tbody>`;
+      res.forEach((x,i)=>{html+=`<tr><td>${i+1}</td><td style="text-align:left;font-weight:600;">${esc(x.p.name)}</td><td>${x.gross}</td><td style="font-weight:700;">${r.format==='stableford'?x.pts:x.net}</td></tr>`;});
+      html+='</tbody></table>';
+    }
+    html+='</div>';
+  });});
+  if(!any&&!board.length)html+=`<div class="empty"><div class="empty-icon">&#127948;</div><p>No completed rounds yet.</p></div>`;
+  b.innerHTML=html+`<div class="bottom-spacer"></div>`;
+}
+
+// ═══ SETTINGS ═══
+function renderSettings(){
+  const b=el('settings-body');if(!b)return;
+  const sk=S.settings.skins||{};
+  b.innerHTML=`<div class="card" style="background:var(--g800);"><div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--gold);">GOLF TRIP</div><div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px;line-height:1.8;">Version <strong style="color:#fff;">v${APP_VERSION}</strong> &nbsp;&middot;&nbsp; <span style="color:rgba(255,255,255,.7);">${BUILD_TIME}</span></div></div>
+  <div class="card"><div class="card-title">Scoring</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="font-size:13px;font-weight:600;min-width:140px;">Stroke Allowance %</span><input type="number" value="${S.settings.strokeAllowance||100}" inputmode="numeric" onchange="S.settings.strokeAllowance=parseInt(this.value)||100;scheduleWrite();" style="width:70px;padding:6px 8px;border:1.5px solid var(--surf3);border-radius:6px;font-size:14px;text-align:center;font-family:'DM Sans',sans-serif;"></div>
+    <div><div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">Group Method</div><select onchange="S.settings.groupMethod=this.value;scheduleWrite();" style="width:100%;padding:9px 12px;border:1.5px solid var(--surf3);border-radius:8px;font-size:14px;font-family:'DM Sans',sans-serif;"><option value="abcd" ${S.settings.groupMethod==='abcd'?'selected':''}>ABCD (Balanced, minimize repeat pairings)</option><option value="random" ${S.settings.groupMethod==='random'?'selected':''}>Random</option></select></div>
+  </div>
+  <div class="card"><div class="card-title">Stableford Points</div>${[['ptsDblEagle','Double Eagle/Better'],['ptsEagle','Eagle'],['ptsBirdie','Birdie'],['ptsPar','Par'],['ptsBogey','Bogey'],['ptsDbl','Double Bogey/Worse']].map(([k,l])=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="min-width:150px;font-size:13px;font-weight:600;">${l}</span><input type="number" value="${S.settings[k]??0}" inputmode="numeric" onchange="S.settings['${k}']=parseInt(this.value)||0;scheduleWrite();" style="width:60px;padding:6px 8px;border:1.5px solid var(--surf3);border-radius:6px;font-size:14px;text-align:center;font-family:'DM Sans',sans-serif;"></div>`).join('')}</div>
+  <div class="card"><div class="card-title">Skins</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="font-size:13px;font-weight:600;min-width:140px;">Skins HCP Adj %</span><input type="number" value="${sk.hcpAdj||100}" inputmode="numeric" onchange="S.settings.skins.hcpAdj=parseInt(this.value)||100;scheduleWrite();" style="width:70px;padding:6px 8px;border:1.5px solid var(--surf3);border-radius:6px;font-size:14px;text-align:center;font-family:'DM Sans',sans-serif;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:13px;font-weight:600;">Stroke off Best Player</span><label class="switch"><input type="checkbox" ${sk.strokeOffBest?'checked':''} onchange="S.settings.skins.strokeOffBest=this.checked;scheduleWrite();"><span class="slider"></span></label></div>
+  </div>
+  <div class="card"><div class="card-title">GHIN</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><span style="font-size:13px;font-weight:600;">Auto Refresh (daily)</span><label class="switch"><input type="checkbox" ${S.config.autoGhinRefresh!==false?'checked':''} onchange="S.config.autoGhinRefresh=this.checked;scheduleWrite();"><span class="slider"></span></label></div>
+    <div class="field"><label>Proxy URL</label><input type="text" value="${esc(S.config.ghinProxyUrl||GHIN_PROXY)}" onchange="S.config.ghinProxyUrl=this.value.trim();scheduleWrite();"></div>
+  </div>
+  <div class="card"><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:14px;font-weight:600;">Admin Mode</span><label class="switch"><input type="checkbox" ${adminMode?'checked':''} onchange="toggleAdmin()"><span class="slider"></span></label></div></div>
+  <div class="bottom-spacer"></div>`;
+}
+
+// ═══ INIT ═══
+async function init(){
+  if(localStorage.getItem(VERSION_KEY)!==APP_VERSION)localStorage.setItem(VERSION_KEY,APP_VERSION);
+  loadLocal();renderHeader();showTab('trips');
+  if(localStorage.getItem(LS_KEY+'_dirty')&&S.config&&S.config.writeKey){_fbLoaded=true;fbWrite(S);}
+  fbLoad().then(()=>{
+    renderAll();checkForUpdate();
+    const t=T();if(t&&inWindow(t)&&ghinRefreshDue())doGhinRefresh(false);
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){if(!S.activeRound)fbLoad();checkForUpdate();if(_dirty&&S.config&&S.config.writeKey)fbWrite(S);}
+  });
+}
+
+init();
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW:',e)));
+</script>
+</body>
+</html>
